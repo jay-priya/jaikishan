@@ -52,6 +52,8 @@ header p{margin:2px 0 0;font-size:12.5px;color:#c9c9c9}
 .btn.light{background:#fff;color:var(--ink);border:1px solid #dbe0e8}
 .sheet{position:fixed;inset:0;background:rgba(14,34,64,.45);z-index:40;display:none;align-items:flex-end}
 .sheet.on{display:flex}
+body.lock{overflow:hidden;position:fixed;left:0;right:0;width:100%}
+.sheet .in{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .sheet .in{background:#fff;width:100%;max-width:640px;margin:0 auto;border-radius:18px 18px 0 0;max-height:92vh;overflow:auto;padding:16px 16px calc(18px + env(safe-area-inset-bottom))}
 .sheet h2{margin:0 0 10px;font-size:18px;color:var(--ink)}
 .li{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:7px 0;border-bottom:1px solid #f1f2f5}
@@ -158,11 +160,11 @@ function openCart(){
   '<label>Customer name *</label><input class="f" id="fn" placeholder="Shop or person name" value="'+esc(me.name||"")+'" autocomplete="off">'+
   '<label>Mobile *</label><input class="f" id="fm" inputmode="numeric" maxlength="10" placeholder="10-digit mobile" value="'+esc(me.mobile||"")+'" autocomplete="off">'+
   '<label>Address *</label><input class="f" id="fa" autocomplete="off" placeholder="Shop, street" value="'+esc(me.address||"")+'">'+
-  '<div class="two"><div><label>PIN code *</label><input class="f" id="fp" inputmode="numeric" maxlength="6" placeholder="6 digits" value="'+esc(me.pin||"")+'" autocomplete="off"></div><div><label>Area *</label><input class="f" id="far" list="areaList" value="'+esc(me.area||"")+'" autocomplete="off"><datalist id="areaList"></datalist></div></div>'+
+  '<label>PIN code *</label><input class="f" id="fp" inputmode="numeric" maxlength="6" placeholder="6 digits" value="'+esc(me.pin||"")+'" autocomplete="off">'+
   '<p class="pinmsg" id="pinMsg">Type the PIN code. City and state fill in by themselves.</p>'+
   '<div class="two"><div><label>City *</label><input class="f" id="fc" value="'+esc(me.city||"")+'" autocomplete="off"></div><div><label>State *</label><input class="f" id="fst" value="'+esc(me.state||"Rajasthan")+'" autocomplete="off"></div></div>'+
   '<div class="err" id="ferr"></div><div style="display:flex;gap:10px;margin-top:6px"><button class="btn light" style="flex:1" onclick="closeCart()">Add more</button><button class="btn" style="flex:1.4" id="sendB" onclick="send()">Send order request</button></div>';
-  document.getElementById("cart").classList.add("on");
+  document.getElementById("cart").classList.add("on");lockBody(true);
   document.querySelectorAll("#cartIn .f").forEach(function(el){el.addEventListener("input",function(){el.classList.remove("bad");keepMe();var e=document.getElementById("ferr");if(e)e.textContent=""})});
   document.getElementById("fp").addEventListener("input",pinChanged);
 }
@@ -198,25 +200,25 @@ function pinDirect(pin,cb){
 function pinShow(pin,r){
     if(pin!==document.getElementById("fp").value)return;
     if(!r||!r.ok){pinMsg((r&&r.error)||"Please type the city and state.","bad");return}
-    var c=document.getElementById("fc"),st=document.getElementById("fst"),ar=document.getElementById("far");
+    var c=document.getElementById("fc"),st=document.getElementById("fst");
     if(r.city){c.value=r.city;c.classList.remove("bad")}
     if(r.state){st.value=r.state;st.classList.remove("bad")}
-    document.getElementById("areaList").innerHTML=(r.areas||[]).map(function(a){return'<option value="'+esc(a)+'">'}).join("");
-    keepMe();pinMsg("✓ "+(r.city?r.city+", ":"")+r.state+(ar.value?"":" · choose or type your area"),"ok");
+    keepMe();pinMsg("✓ "+(r.city?r.city+", ":"")+r.state,"ok");
 }
-function readMe(){var g=function(id){var e=document.getElementById(id);return e?e.value:""};return{name:g("fn"),mobile:g("fm"),address:g("fa"),area:g("far"),city:g("fc"),state:g("fst"),pin:g("fp"),note:g("fx")}}
+function readMe(){var g=function(id){var e=document.getElementById(id);return e?e.value:""};return{name:g("fn"),mobile:g("fm"),address:g("fa"),area:"",city:g("fc"),state:g("fst"),pin:g("fp"),note:g("fx")}}
 function keepMe(){if(!document.getElementById("fn"))return;ME=readMe()}
-function closeCart(){keepMe();document.getElementById("cart").classList.remove("on")}
+var lockY=0;
+function lockBody(on){var b=document.body;if(on){if(b.classList.contains("lock"))return;lockY=window.scrollY||0;b.style.top=(-lockY)+"px";b.classList.add("lock")}else{if(!b.classList.contains("lock"))return;b.classList.remove("lock");b.style.top="";window.scrollTo(0,lockY)}}
+function closeCart(){keepMe();document.getElementById("cart").classList.remove("on");lockBody(false)}
 function send(){
   var v=function(id){return document.getElementById(id).value.trim()};
-  var me={name:v("fn"),mobile:v("fm").replace(/\D/g,""),address:v("fa"),area:v("far"),city:v("fc"),state:v("fst"),pin:v("fp").replace(/\D/g,"")};
+  var me={name:v("fn"),mobile:v("fm").replace(/\D/g,""),address:v("fa"),area:"",city:v("fc"),state:v("fst"),pin:v("fp").replace(/\D/g,"")};
   var e=document.getElementById("ferr");
   var bad=function(id,msg){var el=document.getElementById(id);el.classList.add("bad");el.focus();e.textContent=msg;return false};
   document.querySelectorAll("#cartIn .f.bad").forEach(function(x){x.classList.remove("bad")});
   if(me.name.length<2)return bad("fn","Please enter the customer name.");
   if(!/^[6-9]\d{9}$/.test(me.mobile))return bad("fm","Please enter a 10-digit mobile number.");
   if(me.address.length<3)return bad("fa","Please enter the address.");
-  if(me.area.length<2)return bad("far","Please enter the area.");
   if(me.city.length<2)return bad("fc","Please enter the city.");
   if(me.state.length<2)return bad("fst","Please enter the state.");
   if(!/^\d{6}$/.test(me.pin))return bad("fp","Please enter a 6-digit PIN code.");
